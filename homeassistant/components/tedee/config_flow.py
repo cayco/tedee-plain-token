@@ -23,8 +23,14 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_HOST, CONF_WEBHOOK_ID
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_LOCAL_ACCESS_TOKEN, DOMAIN, NAME
-
+from .const import (
+    CONF_API_TOKEN_MODE,
+    CONF_LOCAL_ACCESS_TOKEN,
+    DOMAIN,
+    NAME,
+    API_TOKEN_MODE_PLAIN,
+    API_TOKEN_MODE_SECURE,
+)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -46,10 +52,14 @@ class TedeeConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 host = user_input[CONF_HOST]
             local_access_token = user_input[CONF_LOCAL_ACCESS_TOKEN]
+            api_token_mode = user_input.get(
+                CONF_API_TOKEN_MODE, API_TOKEN_MODE_SECURE
+            )  # Default to secure
             tedee_client = TedeeClient(
                 local_token=local_access_token,
                 local_ip=host,
                 session=async_get_clientsession(self.hass),
+                api_token_mode=api_token_mode,
             )
             try:
                 local_bridge = await tedee_client.get_local_bridge()
@@ -88,6 +98,10 @@ class TedeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_LOCAL_ACCESS_TOKEN,
                     ): str,
+                    vol.Optional(
+                        CONF_API_TOKEN_MODE,
+                        default=API_TOKEN_MODE_SECURE,
+                    ): vol.In([API_TOKEN_MODE_SECURE, API_TOKEN_MODE_PLAIN]),
                 }
             ),
             errors=errors,
@@ -117,6 +131,14 @@ class TedeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     }
                 ),
             )
+        updated_input = {
+            CONF_LOCAL_ACCESS_TOKEN: user_input[CONF_LOCAL_ACCESS_TOKEN],
+            # Preserve API_TOKEN_MODE if it exists, otherwise default to secure
+            CONF_API_TOKEN_MODE: self._get_reauth_entry().data.get(
+                CONF_API_TOKEN_MODE, API_TOKEN_MODE_SECURE
+            ),
+        }
+        return await self.async_step_user(updated_input)
         return await self.async_step_user(user_input)
 
     async def async_step_reconfigure(
@@ -139,4 +161,12 @@ class TedeeConfigFlow(ConfigFlow, domain=DOMAIN):
                     }
                 ),
             )
-        return await self.async_step_user(user_input)
+        updated_input = {
+            CONF_HOST: user_input[CONF_HOST],
+            CONF_LOCAL_ACCESS_TOKEN: user_input[CONF_LOCAL_ACCESS_TOKEN],
+            # Preserve API_TOKEN_MODE if it exists, otherwise default to secure
+            CONF_API_TOKEN_MODE: self._get_reconfigure_entry().data.get(
+                CONF_API_TOKEN_MODE, API_TOKEN_MODE_SECURE
+            ),
+        }
+        return await self.async_step_user(updated_input)
