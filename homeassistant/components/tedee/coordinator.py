@@ -26,7 +26,12 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_LOCAL_ACCESS_TOKEN, DOMAIN
+from .const import (
+    CONF_API_TOKEN_MODE,
+    CONF_LOCAL_ACCESS_TOKEN,
+    DOMAIN,
+    API_TOKEN_MODE_SECURE,
+)
 
 SCAN_INTERVAL = timedelta(seconds=30)
 GET_LOCKS_INTERVAL_SECONDS = 3600
@@ -56,6 +61,9 @@ class TedeeApiCoordinator(DataUpdateCoordinator[dict[int, TedeeLock]]):
             local_token=self.config_entry.data[CONF_LOCAL_ACCESS_TOKEN],
             local_ip=self.config_entry.data[CONF_HOST],
             session=async_get_clientsession(hass),
+            api_token_mode=self.config_entry.data.get(
+                CONF_API_TOKEN_MODE, API_TOKEN_MODE_SECURE
+            ),
         )
 
         self._next_get_locks = time.time()
